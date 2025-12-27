@@ -1,0 +1,16 @@
+{
+  "buildCommand": "bun run bun:build",
+  "outputDirectory": ".next",
+  "installCommand": "bun install",
+  "framework": "nextjs",
+  "functions": {
+    "pages/api/**/*.js": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "build": {
+    "env": {
+      "NEXT_TELEMETRY_DISABLED": "1"
+    }
+  }
+}
