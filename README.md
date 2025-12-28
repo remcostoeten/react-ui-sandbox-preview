@@ -26,21 +26,95 @@ Your project is live at:
 
 ## Getting Started
 
-1. Clone the repository
-2. Install dependencies with `npm install` or `bun install`
-3. Run the development server with `npm run dev` or `bun run dev`
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
+### Prerequisites
+
+This project is optimized for **Bun** but also supports **pnpm** and **npm**.
+
+### Installation
+
+#### With Bun (Recommended)
+```bash
+bun install
+```
+
+#### With pnpm
+```bash
+pnpm install
+```
+
+#### With npm
+```bash
+npm install
+```
+
+### Development Server
+
+#### With Bun (Recommended)
+```bash
+bun run dev
+```
+
+#### With pnpm
+```bash
+pnpm run pnpm:dev
+```
+
+#### With npm
+```bash
+npm run npm:dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Build and Deploy
 
-```bash
-# Build for production
-npm run build
-# or
-bun run build
+### Production Build
 
-# Start production server
-npm run start
-# or
+#### With Bun (Recommended)
+```bash
+bun run build
+```
+
+#### With pnpm
+```bash
+pnpm run pnpm:build
+```
+
+#### With npm
+```bash
+npm run npm:build
+```
+
+### Start Production Server
+
+#### With Bun (Recommended)
+```bash
 bun run start
+```
+
+#### With pnpm
+```bash
+pnpm run pnpm:start
+```
+
+#### With npm
+```bash
+npm run npm:start
+```
+
+### Linting
+
+#### With Bun (Recommended)
+```bash
+bun run lint
+```
+
+#### With pnpm
+```bash
+pnpm run pnpm:lint
+```
+
+#### With npm
+```bash
+npm run npm:lint
 ```

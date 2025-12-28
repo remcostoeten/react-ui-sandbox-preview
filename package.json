@@ -8,13 +8,18 @@
     "version": "0.0.1",
     "private": true,
     "scripts": {
-        "build": "next build",
-        "dev": "next dev",
-        "lint": "eslint .",
-        "start": "next start",
-        "bun:dev": "bun next dev",
-        "bun:build": "bun next build",
-        "bun:start": "bun next start"
+        "dev": "bun next dev",
+        "build": "bun next build",
+        "start": "bun next start",
+        "lint": "bun next lint",
+        "pnpm:dev": "pnpm next dev",
+        "pnpm:build": "pnpm next build",
+        "pnpm:start": "pnpm next start",
+        "pnpm:lint": "pnpm next lint",
+        "npm:dev": "npm run dev",
+        "npm:build": "npm run build",
+        "npm:start": "npm run start",
+        "npm:lint": "npm run lint"
     },
     "dependencies": {
         "@babel/runtime": "latest",
