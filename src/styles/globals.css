@@ -1,9 +1,35 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+/* Font imports for Evaluator UI */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* Evaluator Color System */
+  --bg-base: #0a0a0a;
+  --bg-elevated: #111111;
+  --bg-surface: #1a1a1f;
+  --bg-hover: #252530;
+  
+  --accent-primary: #3b82f6;
+  --accent-glow: rgba(59, 130, 246, 0.3);
+  --accent-success: #22c55e;
+  --accent-warning: #f59e0b;
+  --accent-error: #ef4444;
+  
+  --text-primary: #e4e4e7;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-disabled: #52525b;
+  
+  --border-subtle: #27272a;
+  --border-default: #3f3f46;
+  --border-accent: #3b82f6;
+
+  /* Legacy variables for compatibility */
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

@@ -4,7 +4,7 @@
  */
 
 import { transform } from "sucrase"
-import type { CompileOutput, ExportInfo, CompileTimeError } from "./types"
+import type { CompileOutput, ExportInfo, CompileTimeError, ExecutionMode, ExecutionMetrics } from "./types"
 import { ALLOWED_IMPORTS, FORBIDDEN_PATTERNS, STRIP_DIRECTIVES, CAPABILITY_MAP } from "./constants"
 
 const importMap = new Map<string, Record<string, unknown>>()
@@ -287,14 +287,53 @@ function transformModuleSyntax(source: string): { code: string; exportCapture: s
 }
 
 /**
- * Compile TSX source to JavaScript
+ * Compile TSX source to JavaScript with performance tracking
  */
-export function compile(source: string): CompileOutput {
+export function compile(
+  source: string,
+  mode: ExecutionMode = "component",
+  options: { strict?: boolean } = {}
+): CompileOutput {
+  const { strict = true } = options
+  const startTime = performance.now()
+
   try {
-    // Validate imports first
-    const importError = validateImports(source)
-    if (importError) {
-      return { success: false, error: importError }
+    // For script mode, skip most of the module processing
+    if (mode === "script") {
+      // Still validate imports for security if strict is on
+      if (strict) {
+        const importError = validateImports(source)
+        if (importError) {
+          return { success: false, error: importError }
+        }
+      }
+
+      // Preprocess (strip directives)
+      const preprocessed = preprocess(source)
+
+      // Run Sucrase to transform TypeScript only (no JSX)
+      const result = transform(preprocessed, {
+        transforms: ["typescript"],
+        production: true,
+      })
+
+      const compilationTime = performance.now() - startTime
+
+      return {
+        success: true,
+        code: result.code,
+        exports: [],
+        compilationTime
+      }
+    }
+
+    // Component mode - existing logic
+    // Validate imports first if strict mode is on
+    if (strict) {
+      const importError = validateImports(source)
+      if (importError) {
+        return { success: false, error: importError }
+      }
     }
 
     // Detect exports before transformation (for UI purposes)
@@ -323,10 +362,13 @@ export function compile(source: string): CompileOutput {
       })
     `
 
+    const compilationTime = performance.now() - startTime
+
     return {
       success: true,
       code: moduleCode,
       exports,
+      compilationTime
     }
   } catch (err) {
     const error = err as Error

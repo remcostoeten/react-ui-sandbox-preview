@@ -26,8 +26,10 @@ export type { UseComponentEvaluatorReturn } from "./hooks/use-component-evaluato
 export { EvaluatorWorkspace } from "./components/evaluator-workspace"
 export { CodeEditor } from "./components/code-editor"
 export { FileTree } from "./components/file-tree"
+export { Sidebar } from "./components/sidebar"
 export { PreviewCanvas } from "./components/preview-canvas"
 export { TopBar } from "./components/top-bar"
+export { StatusBar } from "./components/status-bar"
 export { ErrorDisplay } from "./components/error-display"
 export { ExportSelector } from "./components/export-selector"
 

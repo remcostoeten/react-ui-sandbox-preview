@@ -7,25 +7,42 @@ import type React from "react"
  * Unified state management and orchestration for the ComponentEvaluator module
  */
 
-import { useState, useCallback, useMemo } from "react"
-import type { ComponentEvaluatorState, VirtualFile, RenderState, EvaluatorError, ExportInfo } from "../types"
+import { useState, useCallback, useMemo, useEffect } from "react"
+import type {
+  ComponentEvaluatorState,
+  VirtualFile,
+  RenderState,
+  EvaluatorError,
+  ExportInfo,
+  ExecutionMode,
+  ConsoleOutput,
+  ExecutionMetrics,
+  EvaluatorConfig,
+  FileRegistryState
+} from "../types"
 import {
   createFileRegistry,
   createFile,
+  createFolder,
   updateFile,
+  moveNode,
   deleteFile,
   setActiveFile,
   getActiveFile,
   getAllFiles,
 } from "../lib/file-registry"
 import { compile } from "../lib/compiler"
-import { execute, extractComponent, findBestExport } from "../lib/executor"
+import { execute, extractComponent, findBestExport, detectExecutionMode } from "../lib/executor"
 
 const initialRenderState: RenderState = {
   status: "idle",
   selectedExport: null,
   component: null,
   error: null,
+  executionMode: "component",
+  executionResult: undefined,
+  consoleOutput: [],
+  executionMetrics: undefined,
 }
 
 export interface UseComponentEvaluatorReturn {
@@ -36,10 +53,12 @@ export interface UseComponentEvaluatorReturn {
   availableExports: ExportInfo[]
 
   // File operations
-  createFile: (name: string, content?: string) => VirtualFile
+  createFile: (name: string, content?: string, parentId?: string | null) => VirtualFile
+  createFolder: (name: string, parentId?: string | null) => VirtualFile
   updateFileContent: (fileId: string, content: string) => void
   removeFile: (fileId: string) => void
   selectFile: (fileId: string | null) => void
+  moveNode: (nodeId: string, targetParentId: string | null) => void
 
   // Evaluation
   evaluate: () => void
@@ -50,17 +69,70 @@ export interface UseComponentEvaluatorReturn {
   component: React.ComponentType | null
   error: EvaluatorError | null
   isLoading: boolean
+  executionMode: ExecutionMode
+  executionResult: unknown
+  consoleOutput: ConsoleOutput[]
+  executionMetrics?: ExecutionMetrics
 
   // Error handling
   clearError: () => void
   handleRuntimeError: (error: EvaluatorError) => void
 }
 
-export function useComponentEvaluator(): UseComponentEvaluatorReturn {
+export function useComponentEvaluator(config?: EvaluatorConfig): UseComponentEvaluatorReturn {
   const [registry, setRegistry] = useState(() => createFileRegistry())
   const [renderState, setRenderState] = useState<RenderState>(initialRenderState)
   const [availableExports, setAvailableExports] = useState<ExportInfo[]>([])
   const [cachedExports, setCachedExports] = useState<Record<string, unknown>>({})
+
+  // Local Storage Persistence
+  const STORAGE_KEY = "evaluator-registry-v1"
+
+  // Load from storage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        // We'd ideally need a proper deserialization here to Map/Set if we used them extensively
+        // But FileRegistryState uses simple objects and Maps for files
+        // Since JSON.stringify/parse handles objects, we just need to ensure Map reconstruction
+        const parsed = JSON.parse(saved)
+
+        // Reconstruct Map for files
+        if (parsed.files && typeof parsed.files === 'object') {
+          const filesMap = new Map<string, VirtualFile>()
+          Object.entries(parsed.files).forEach(([k, v]) => filesMap.set(k, v as VirtualFile))
+
+          setRegistry({
+            files: filesMap,
+            activeFileId: parsed.activeFileId
+          })
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load registry from storage:", e)
+    }
+  }, [])
+
+  // Save to storage on change (debounced)
+  useEffect(() => {
+    if (registry.files.size === 0) return
+
+    const timer = setTimeout(() => {
+      try {
+        // Convert Map to object for JSON stringify
+        const serialized = {
+          files: Object.fromEntries(registry.files),
+          activeFileId: registry.activeFileId
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(serialized))
+      } catch (e) {
+        console.warn("Failed to save registry to storage:", e)
+      }
+    }, 1000)
+
+    return () => clearTimeout(timer)
+  }, [registry])
 
   // Derived state
   const files = useMemo(() => getAllFiles(registry), [registry])
@@ -69,8 +141,8 @@ export function useComponentEvaluator(): UseComponentEvaluatorReturn {
 
   // File operations
   const handleCreateFile = useCallback(
-    (name: string, content = "") => {
-      const result = createFile(registry, name, content)
+    (name: string, content = "", parentId: string | null = null) => {
+      const result = createFile(registry, name, content, parentId)
       setRegistry(result.registry)
       // Reset render state for new file
       setRenderState(initialRenderState)
@@ -80,13 +152,26 @@ export function useComponentEvaluator(): UseComponentEvaluatorReturn {
     [registry],
   )
 
+  const handleCreateFolder = useCallback(
+    (name: string, parentId: string | null = null) => {
+      const result = createFolder(registry, name, parentId)
+      setRegistry(result.registry)
+      return result.folder
+    },
+    [registry],
+  )
+
   const handleUpdateFileContent = useCallback((fileId: string, content: string) => {
-    setRegistry((prev) => updateFile(prev, fileId, content))
+    setRegistry((prev: FileRegistryState) => updateFile(prev, fileId, content))
+  }, [])
+
+  const handleMoveNode = useCallback((nodeId: string, targetParentId: string | null) => {
+    setRegistry((prev: FileRegistryState) => moveNode(prev, nodeId, targetParentId))
   }, [])
 
   const handleRemoveFile = useCallback(
     (fileId: string) => {
-      setRegistry((prev) => deleteFile(prev, fileId))
+      setRegistry((prev: FileRegistryState) => deleteFile(prev, fileId))
       if (registry.activeFileId === fileId) {
         setRenderState(initialRenderState)
         setAvailableExports([])
@@ -96,7 +181,7 @@ export function useComponentEvaluator(): UseComponentEvaluatorReturn {
   )
 
   const handleSelectFile = useCallback((fileId: string | null) => {
-    setRegistry((prev) => setActiveFile(prev, fileId))
+    setRegistry((prev: FileRegistryState) => setActiveFile(prev, fileId))
     // Reset render state when switching files
     setRenderState(initialRenderState)
     setAvailableExports([])
@@ -111,16 +196,22 @@ export function useComponentEvaluator(): UseComponentEvaluatorReturn {
         selectedExport: null,
         component: null,
         error: { type: "compile", message: "No file selected" },
+        executionMode: "component",
+        executionResult: undefined,
+        consoleOutput: [],
       })
       return
     }
 
-    // Start compilation
-    setRenderState((prev) => ({ ...prev, status: "compiling", error: null }))
+    // Detect execution mode
+    const mode = detectExecutionMode(file.content)
+
+    // Start compilation with strict option
+    setRenderState((prev) => ({ ...prev, status: "compiling", error: null, executionMode: mode }))
 
     try {
-      // Compile
-      const compileResult = compile(file.content)
+      // Compile with mode and strict option
+      const compileResult = compile(file.content, mode, { strict: config?.strict })
 
       if (!compileResult.success) {
         setRenderState({
@@ -128,14 +219,17 @@ export function useComponentEvaluator(): UseComponentEvaluatorReturn {
           selectedExport: null,
           component: null,
           error: compileResult.error,
+          executionMode: mode,
+          executionResult: undefined,
+          consoleOutput: [],
         })
         return
       }
 
       setRenderState((prev) => ({ ...prev, status: "executing" }))
 
-      // Execute
-      const execResult = execute(compileResult.code, compileResult.exports)
+      // Execute with mode
+      const execResult = execute(compileResult.code, compileResult.exports, mode)
 
       if (!execResult.success) {
         setRenderState({
@@ -143,23 +237,60 @@ export function useComponentEvaluator(): UseComponentEvaluatorReturn {
           selectedExport: null,
           component: null,
           error: execResult.error,
+          executionMode: mode,
+          executionResult: undefined,
+          consoleOutput: [],
         })
         return
       }
 
-      // Store exports and find best one to render
-      setCachedExports(execResult.exports)
-      setAvailableExports(execResult.detectedExports)
+      // Handle different execution modes
+      if (mode === "script") {
+        // Script mode - show return value and console output
+        const metrics: ExecutionMetrics = {
+          compilationTime: compileResult.compilationTime || 0,
+          executionTime: execResult.metrics?.executionTime || 0,
+          totalTime: (compileResult.compilationTime || 0) + (execResult.metrics?.executionTime || 0),
+          mode
+        }
 
-      const bestExport = findBestExport(execResult.detectedExports)
-      const component = bestExport ? extractComponent(execResult.exports, bestExport) : null
+        setRenderState({
+          status: "rendering",
+          selectedExport: null,
+          component: null,
+          error: null,
+          executionMode: mode,
+          executionResult: execResult.returnValue,
+          consoleOutput: execResult.consoleOutput || [],
+          executionMetrics: metrics,
+        })
+        setAvailableExports([])
+      } else {
+        // Component mode - existing logic
+        const metrics: ExecutionMetrics = {
+          compilationTime: compileResult.compilationTime || 0,
+          executionTime: execResult.metrics?.executionTime || 0,
+          totalTime: (compileResult.compilationTime || 0) + (execResult.metrics?.executionTime || 0),
+          mode
+        }
 
-      setRenderState({
-        status: "rendering",
-        selectedExport: bestExport,
-        component,
-        error: null,
-      })
+        setCachedExports(execResult.exports)
+        setAvailableExports(execResult.detectedExports)
+
+        const bestExport = findBestExport(execResult.detectedExports)
+        const component = bestExport ? extractComponent(execResult.exports, bestExport) : null
+
+        setRenderState({
+          status: "rendering",
+          selectedExport: bestExport,
+          component,
+          error: null,
+          executionMode: mode,
+          executionResult: undefined,
+          consoleOutput: execResult.consoleOutput || [],
+          executionMetrics: metrics,
+        })
+      }
     } catch (err) {
       const error = err as Error
       setRenderState({
@@ -167,9 +298,23 @@ export function useComponentEvaluator(): UseComponentEvaluatorReturn {
         selectedExport: null,
         component: null,
         error: { type: "runtime", message: error.message },
+        executionMode: "component",
+        executionResult: undefined,
+        consoleOutput: [],
       })
     }
-  }, [registry])
+  }, [registry, config?.strict])
+
+  // Implement Auto-run
+  useEffect(() => {
+    if (!config?.autoRun || !activeFile) return
+
+    const timer = setTimeout(() => {
+      evaluate()
+    }, 500) // 500ms debounce
+
+    return () => clearTimeout(timer)
+  }, [activeFile?.content, config?.autoRun, evaluate])
 
   // Export selection
   const selectExport = useCallback(
@@ -213,9 +358,11 @@ export function useComponentEvaluator(): UseComponentEvaluatorReturn {
     availableExports,
 
     createFile: handleCreateFile,
+    createFolder: handleCreateFolder,
     updateFileContent: handleUpdateFileContent,
     removeFile: handleRemoveFile,
     selectFile: handleSelectFile,
+    moveNode: handleMoveNode,
 
     evaluate,
     selectExport,
@@ -224,6 +371,10 @@ export function useComponentEvaluator(): UseComponentEvaluatorReturn {
     component: renderState.component,
     error: renderState.error,
     isLoading,
+    executionMode: renderState.executionMode,
+    executionResult: renderState.executionResult,
+    consoleOutput: renderState.consoleOutput || [],
+    executionMetrics: renderState.executionMetrics,
 
     clearError,
     handleRuntimeError,

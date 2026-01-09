@@ -31,13 +31,25 @@ export function ComponentRenderer({ component: Component, onError }: RendererPro
     [onError],
   )
 
+  // Initialize root once
   useEffect(() => {
     if (!containerRef.current) return
 
-    // Create root if not exists
-    if (!rootRef.current) {
-      rootRef.current = createRoot(containerRef.current)
+    rootRef.current = createRoot(containerRef.current)
+
+    return () => {
+      const root = rootRef.current
+      // Defer unmount to avoid synchronous unmount errors during renders
+      if (root) {
+        setTimeout(() => root.unmount(), 0)
+      }
+      rootRef.current = null
     }
+  }, [])
+
+  // Handle component updates
+  useEffect(() => {
+    if (!rootRef.current) return
 
     // Reset error boundary on component change
     errorBoundaryRef.current?.reset()
@@ -54,14 +66,6 @@ export function ComponentRenderer({ component: Component, onError }: RendererPro
           No component to render
         </div>,
       )
-    }
-
-    return () => {
-      // Cleanup on unmount
-      if (rootRef.current) {
-        rootRef.current.unmount()
-        rootRef.current = null
-      }
     }
   }, [Component, handleError])
 

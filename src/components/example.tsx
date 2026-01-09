@@ -1,7 +1,5 @@
-"use client"
-import { EvaluatorWorkspace } from "@/features/evaluator"
-
-const EXAMPLE_CODE = `import {
+// Example usage of all the new imports and utilities
+import {
   // React hooks
   useState,
   useEffect,
@@ -55,7 +53,7 @@ const EXAMPLE_CODE = `import {
 } from '@/utils'
 
 // Example component using various utilities
-export default function EnhancedCounter() {
+export function ExampleComponent() {
   const [count, setCount] = useState(0)
   const [isDark, setIsDark] = useLocalStorage('dark-mode', false)
   const [isOpen, toggleOpen] = useToggle(false)
@@ -83,22 +81,26 @@ export default function EnhancedCounter() {
   }, [])
   
   const expensiveValue = useMemo(() => {
-    return Array.from({ length: 1000 }, (_, i) => i * count)
-      .reduce((a, b) => a + b, 0)
+    return Array.from({ length: 1000 }, (_, i) => i * count).reduce((a, b) => a + b, 0)
   }, [count])
   
   const buttonVariants = cva(
-    'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors',
+    'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background',
     {
       variants: {
         variant: {
-          default: 'bg-blue-500 text-white hover:bg-blue-600',
-          outline: 'border border-gray-300 hover:bg-gray-50',
+          default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+          destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+          outline: 'border border-input hover:bg-accent hover:text-accent-foreground',
+          secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+          ghost: 'hover:bg-accent hover:text-accent-foreground',
+          link: 'underline-offset-4 hover:underline text-primary',
         },
         size: {
-          default: 'h-10 px-4',
-          sm: 'h-9 px-3',
-          lg: 'h-11 px-6',
+          default: 'h-10 py-2 px-4',
+          sm: 'h-9 px-3 rounded-md',
+          lg: 'h-11 px-8 rounded-md',
+          icon: 'h-10 w-10',
         },
       },
       defaultVariants: {
@@ -120,7 +122,7 @@ export default function EnhancedCounter() {
       <CardContent className="space-y-4">
         <div className="text-center">
           <div className="text-2xl font-bold">{count}</div>
-          <div className="text-sm text-gray-500">Expensive: {expensiveValue}</div>
+          <div className="text-sm text-muted-foreground">Expensive: {expensiveValue}</div>
         </div>
         
         <div className="flex gap-2">
@@ -143,7 +145,7 @@ export default function EnhancedCounter() {
               'focus:outline-none focus:ring-2 focus:ring-blue-500'
             )}
           />
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-muted-foreground">
             Debounced: {debouncedSearch}
           </div>
         </div>
@@ -159,7 +161,7 @@ export default function EnhancedCounter() {
           </Button>
         </div>
         
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-muted-foreground">
           Enter pressed: {isEnterPressed ? 'Yes' : 'No'} | 
           Escape pressed: {isEscapePressed ? 'Yes' : 'No'}
         </div>
@@ -171,7 +173,7 @@ export default function EnhancedCounter() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="p-4 bg-white border rounded-lg shadow-lg"
+              className="p-4 bg-background border rounded-lg"
             >
               <p>Modal content - Press Escape or click outside to close</p>
             </motion.div>
@@ -182,7 +184,7 @@ export default function EnhancedCounter() {
           {isOpen ? 'Close' : 'Open'} Modal
         </Button>
         
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-muted-foreground">
           Current date: {format(new Date(), 'PPP')}
           <br />
           Next week: {format(addDays(new Date(), 7), 'PPP')}
@@ -190,8 +192,4 @@ export default function EnhancedCounter() {
       </CardContent>
     </Card>
   )
-}`
-
-export default function Page() {
-  return <EvaluatorWorkspace />
 }
